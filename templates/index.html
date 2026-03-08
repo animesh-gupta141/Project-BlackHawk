@@ -315,6 +315,11 @@ chats=await res.json()
 
 if(chats.length===0){
 newChat()
+}else{
+loadChat(chats.length-1)
+}
+if(chats[currentIndex].messages.length===0){
+showGreeting()
 }
 
 renderHistory()
@@ -338,6 +343,32 @@ scrollBottom()
 
 }
 
+/* GREETING MESSAGES */
+
+const greetings = [
+
+"Welcome! What are we working on today?",
+
+"Hi there 👋 What can I help you build today?",
+
+"Ready when you are. What are we solving today?",
+
+"Good to see you. What project are we tackling?"
+
+]
+
+function showGreeting(){
+
+let text = greetings[Math.floor(Math.random()*greetings.length)]
+
+let greeting = {
+role:"assistant",
+content:text
+}
+
+addMessage(greeting)
+
+}
 /* ADD MESSAGE UI */
 
 function addMessage(m){
@@ -497,6 +528,8 @@ currentIndex=chats.length-1
 renderHistory()
 
 chatBox.innerHTML=""
+
+showGreeting()
 
 saveChats()
 
