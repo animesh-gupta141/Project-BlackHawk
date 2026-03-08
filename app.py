@@ -9,7 +9,9 @@ load_dotenv()
 app = Flask(__name__)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 CHAT_FILE = "chats.json"
+
 
 def load_chats():
     if not os.path.exists(CHAT_FILE):
@@ -20,9 +22,15 @@ def load_chats():
     with open(CHAT_FILE, "r") as f:
         return json.load(f)
 
+
 def save_chats(chats):
     with open(CHAT_FILE, "w") as f:
         json.dump(chats, f)
+
+
+@app.route("/health")
+def health():
+    return "OK"
 
 
 @app.route("/")
@@ -39,14 +47,15 @@ def load():
 def save():
     chats = request.json
     save_chats(chats)
-    return {"status": "ok"}
+    return jsonify({"status": "ok"})
+
 
 @app.route("/chat", methods=["POST"])
 def chat():
 
     data = request.json
     messages = data["messages"]
-    model = data.get("model","gpt-4.1-mini")
+    model = data.get("model", "gpt-4.1-mini")
 
     stream = client.chat.completions.create(
         model=model,
@@ -60,7 +69,4 @@ def chat():
         if chunk.choices[0].delta.content:
             reply += chunk.choices[0].delta.content
 
-    return {"reply": reply}
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    return jsonify({"reply": reply})
