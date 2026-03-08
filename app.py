@@ -9,16 +9,16 @@ load_dotenv()
 app = Flask(__name__)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 CHAT_FILE = "chats.json"
-
 
 def load_chats():
     if not os.path.exists(CHAT_FILE):
+        with open(CHAT_FILE, "w") as f:
+            json.dump([], f)
         return []
+
     with open(CHAT_FILE, "r") as f:
         return json.load(f)
-
 
 def save_chats(chats):
     with open(CHAT_FILE, "w") as f:
