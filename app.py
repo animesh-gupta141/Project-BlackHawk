@@ -3,7 +3,9 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import json
+import sqlite3
 
+DB_FILE = "chats.db"
 load_dotenv()
 
 app = Flask(__name__)
@@ -12,21 +14,50 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 CHAT_FILE = "chats.json"
 
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
 
 def load_chats():
-    if not os.path.exists(CHAT_FILE):
-        with open(CHAT_FILE, "w") as f:
-            json.dump([], f)
-        return []
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
 
-    with open(CHAT_FILE, "r") as f:
-        return json.load(f)
+    c.execute("SELECT data FROM chats ORDER BY id DESC LIMIT 1")
+    row = c.fetchone()
 
+    conn.close()
+
+    if row:
+        return json.loads(row[0])
+
+    return []
 
 def save_chats(chats):
-    with open(CHAT_FILE, "w") as f:
-        json.dump(chats, f)
 
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+
+    c.execute("DELETE FROM chats")
+
+    c.execute(
+        "INSERT INTO chats (data) VALUES (?)",
+        (json.dumps(chats),)
+    )
+
+    conn.commit()
+    conn.close()
 
 @app.route("/health")
 def health():
