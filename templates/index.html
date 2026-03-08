@@ -1,16 +1,30 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <title>Local AI</title>
 
+<!-- =========================
+LIBRARIES
+========================= -->
+
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/highlight.js/lib/common.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github-dark.min.css">
+
+<link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github-dark.min.css">
+
+<!-- =========================
+CSS SECTION
+========================= -->
 
 <style>
 
 *{box-sizing:border-box}
+
+/* PAGE */
 
 body{
 margin:0;
@@ -32,6 +46,8 @@ overflow:auto;
 border-right:1px solid #2a2a2a;
 }
 
+/* MODEL SELECTOR */
+
 #modelSelect{
 background:#2b2d31;
 color:white;
@@ -42,6 +58,8 @@ margin-bottom:10px;
 width:100%;
 }
 
+/* NEW CHAT */
+
 #newChat{
 background:#2b2d31;
 padding:10px;
@@ -50,6 +68,8 @@ text-align:center;
 cursor:pointer;
 margin-bottom:15px;
 }
+
+/* CHAT ROW */
 
 .chatRow{
 display:flex;
@@ -74,6 +94,8 @@ flex:1;
 font-size:14px;
 }
 
+/* SIDEBAR BUTTONS */
+
 .iconBtn{
 background:none;
 border:none;
@@ -87,7 +109,7 @@ margin-left:6px;
 color:white;
 }
 
-/* MAIN */
+/* MAIN AREA */
 
 #main{
 flex:1;
@@ -95,7 +117,7 @@ display:flex;
 flex-direction:column;
 }
 
-/* CHAT */
+/* CHAT AREA */
 
 #chat{
 flex:1;
@@ -104,33 +126,52 @@ padding:30px;
 scroll-behavior:smooth;
 }
 
-/* MESSAGE */
+/* MESSAGE ROW */
 
 .message{
-max-width:760px;
-margin:auto;
+display:flex;
 margin-bottom:20px;
+padding-left:20px;
+padding-right:20px;
+animation:fadeIn .15s ease;
 }
+
+@keyframes fadeIn{
+from{
+opacity:0;
+transform:translateY(6px);
+}
+to{
+opacity:1;
+transform:translateY(0);
+}
+}
+/* USER MESSAGE (RIGHT SIDE) */
 
 .user{
-background:#343541;
-padding:12px;
-border-radius:10px;
-word-wrap:break-word;
-overflow-wrap:anywhere;
-line-height:1.5;
-}
-
-.ai{
 background:#444654;
 padding:12px;
-border-radius:10px;
+border-radius:12px;
+max-width:70%;
+margin-left:auto;
 word-wrap:break-word;
 overflow-wrap:anywhere;
 line-height:1.5;
 }
 
-/* MESSAGE ACTIONS */
+/* AI MESSAGE (LEFT SIDE) */
+
+.ai{
+background:#111111;
+padding:12px;
+border-radius:12px;
+max-width:70%;
+margin-right:auto;
+word-wrap:break-word;
+overflow-wrap:anywhere;
+line-height:1.5;
+}
+/* HOVER ACTIONS */
 
 .messageActions{
 opacity:0;
@@ -154,16 +195,14 @@ color:white;
 cursor:pointer;
 }
 
-.copyBtn:hover{
-background:#555;
-}
-
-/* INPUT */
+/* INPUT AREA */
 
 #inputArea{
 padding:18px;
 border-top:1px solid #2a2a2a;
 }
+
+/* TEXTAREA */
 
 textarea{
 width:100%;
@@ -180,7 +219,19 @@ textarea:focus{
 outline:none;
 }
 
-/* CODE */
+/* STOP BUTTON */
+
+#stopBtn{
+background:#aa3333;
+border:none;
+color:white;
+padding:10px 14px;
+border-radius:8px;
+cursor:pointer;
+display:none;
+}
+
+/* CODE BLOCK */
 
 pre{
 background:#111;
@@ -200,6 +251,10 @@ font-family:monospace;
 
 <body>
 
+<!-- =========================
+HTML STRUCTURE
+========================= -->
+
 <div id="sidebar">
 
 <select id="modelSelect">
@@ -214,28 +269,48 @@ font-family:monospace;
 
 </div>
 
+
 <div id="main">
 
 <div id="chat"></div>
 
 <div id="inputArea">
-<textarea id="message" rows="2" placeholder="Send a message..."></textarea>
+
+<div style="display:flex;gap:10px">
+
+<textarea id="message" rows="2"
+placeholder="Send a message..."></textarea>
+
+<button id="stopBtn">Stop</button>
+
 </div>
 
 </div>
+
+</div>
+
+<!-- =========================
+JAVASCRIPT SECTION
+========================= -->
 
 <script>
+
+/* GLOBAL VARIABLES */
 
 let chats=[]
 let currentIndex=0
 
+let streamInterval=null
+let stopGeneration=false
+
 const chatBox=document.getElementById("chat")
 
-/* INIT */
+/* LOAD CHATS */
 
 async function init(){
 
 let res=await fetch("/load_chats")
+
 chats=await res.json()
 
 if(chats.length===0){
@@ -247,11 +322,12 @@ loadChat(chats.length-1)
 
 }
 
-/* LOAD CHAT */
+/* LOAD SELECTED CHAT */
 
 function loadChat(i){
 
 currentIndex=i
+
 chatBox.innerHTML=""
 
 let messages=chats[currentIndex].messages
@@ -262,7 +338,7 @@ scrollBottom()
 
 }
 
-/* ADD MESSAGE */
+/* ADD MESSAGE UI */
 
 function addMessage(m){
 
@@ -270,13 +346,18 @@ let div=document.createElement("div")
 div.className="message"
 
 let bubble=document.createElement("div")
-bubble.className=m.role==="user"?"user":"ai"
+
+if(m.role==="user"){
+bubble.className="user"
+}else{
+bubble.className="ai"
+}
 
 bubble.innerHTML=marked.parse(m.content)
 
 div.appendChild(bubble)
 
-/* ACTIONS */
+/* ACTION BUTTONS */
 
 if(m.role==="assistant"){
 
@@ -319,16 +400,18 @@ function scrollBottom(){
 chatBox.scrollTop=chatBox.scrollHeight
 }
 
-/* SIDEBAR */
+/* RENDER SIDEBAR */
 
 function renderHistory(){
 
 let history=document.getElementById("history")
+
 history.innerHTML=""
 
 chats.forEach((chat,i)=>{
 
 let row=document.createElement("div")
+
 row.className="chatRow"
 
 if(i===currentIndex){
@@ -341,11 +424,14 @@ title.innerText=chat.title
 
 title.onclick=()=>loadChat(i)
 
+/* RENAME */
+
 let rename=document.createElement("button")
 rename.className="iconBtn"
 rename.innerText="✏"
 
 rename.onclick=(e)=>{
+
 e.stopPropagation()
 
 let name=prompt("Rename chat",chat.title)
@@ -355,13 +441,17 @@ chat.title=name
 saveChats()
 renderHistory()
 }
+
 }
+
+/* DELETE */
 
 let del=document.createElement("button")
 del.className="iconBtn"
 del.innerText="🗑"
 
 del.onclick=(e)=>{
+
 e.stopPropagation()
 
 if(confirm("Delete chat?")){
@@ -378,6 +468,7 @@ saveChats()
 renderHistory()
 
 }
+
 }
 
 row.appendChild(title)
@@ -400,29 +491,36 @@ messages:[]
 }
 
 chats.push(chat)
+
 currentIndex=chats.length-1
 
 renderHistory()
+
 chatBox.innerHTML=""
+
 saveChats()
 
 }
 
 document.getElementById("newChat").onclick=newChat
 
-/* SAVE */
+/* SAVE CHAT */
 
 async function saveChats(){
 
 await fetch("/save_chats",{
+
 method:"POST",
+
 headers:{"Content-Type":"application/json"},
+
 body:JSON.stringify(chats)
+
 })
 
 }
 
-/* SEND */
+/* SEND MESSAGE */
 
 async function sendMessage(text){
 
@@ -439,12 +537,16 @@ scrollBottom()
 let model=document.getElementById("modelSelect").value
 
 let res=await fetch("/chat",{
+
 method:"POST",
+
 headers:{"Content-Type":"application/json"},
+
 body:JSON.stringify({
 messages:messages,
 model:model
 })
+
 })
 
 let data=await res.json()
@@ -455,13 +557,29 @@ messages.push(aiMsg)
 
 addMessage(aiMsg)
 
-let textStream=data.reply.split(" ")
+/* STREAMING EFFECT */
+
+stopGeneration=false
+
+document.getElementById("stopBtn").style.display="block"
+
+let words=data.reply.split(" ")
 
 let i=0
 
-let interval=setInterval(()=>{
+streamInterval=setInterval(()=>{
 
-aiMsg.content+=textStream[i]+" "
+if(stopGeneration || i>=words.length){
+
+clearInterval(streamInterval)
+
+document.getElementById("stopBtn").style.display="none"
+
+return
+
+}
+
+aiMsg.content+=words[i]+" "
 
 chatBox.lastChild.querySelector(".ai").innerHTML=
 marked.parse(aiMsg.content)
@@ -471,10 +589,6 @@ highlightCode(chatBox.lastChild)
 scrollBottom()
 
 i++
-
-if(i>=textStream.length){
-clearInterval(interval)
-}
 
 },15)
 
@@ -487,7 +601,15 @@ saveChats()
 
 }
 
-/* ENTER SEND */
+/* STOP BUTTON */
+
+document.getElementById("stopBtn").onclick=function(){
+
+stopGeneration=true
+
+}
+
+/* ENTER TO SEND */
 
 let textarea=document.getElementById("message")
 
@@ -514,4 +636,5 @@ init()
 </script>
 
 </body>
+
 </html>
