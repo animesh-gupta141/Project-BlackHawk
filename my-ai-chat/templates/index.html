@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Local AI</title>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js/lib/common.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github-dark.min.css">
+
+<style>
+
+*{box-sizing:border-box}
+
+body{
+margin:0;
+font-family:system-ui;
+background:#202123;
+color:white;
+display:flex;
+height:100vh;
+overflow:hidden;
+}
+
+/* SIDEBAR */
+
+#sidebar{
+width:260px;
+background:#171717;
+padding:15px;
+overflow:auto;
+border-right:1px solid #2a2a2a;
+}
+
+#modelSelect{
+background:#2b2d31;
+color:white;
+border:none;
+padding:8px;
+border-radius:6px;
+margin-bottom:10px;
+width:100%;
+}
+
+#newChat{
+background:#2b2d31;
+padding:10px;
+border-radius:8px;
+text-align:center;
+cursor:pointer;
+margin-bottom:15px;
+}
+
+.chatRow{
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:8px;
+border-radius:6px;
+margin-bottom:4px;
+cursor:pointer;
+}
+
+.chatRow:hover{
+background:#2a2b32;
+}
+
+.activeChat{
+background:#2a2b32;
+}
+
+.chatTitle{
+flex:1;
+font-size:14px;
+}
+
+.iconBtn{
+background:none;
+border:none;
+color:#aaa;
+cursor:pointer;
+font-size:12px;
+margin-left:6px;
+}
+
+.iconBtn:hover{
+color:white;
+}
+
+/* MAIN */
+
+#main{
+flex:1;
+display:flex;
+flex-direction:column;
+}
+
+/* CHAT */
+
+#chat{
+flex:1;
+overflow:auto;
+padding:30px;
+scroll-behavior:smooth;
+}
+
+/* MESSAGE */
+
+.message{
+max-width:760px;
+margin:auto;
+margin-bottom:20px;
+}
+
+.user{
+background:#343541;
+padding:12px;
+border-radius:10px;
+word-wrap:break-word;
+overflow-wrap:anywhere;
+line-height:1.5;
+}
+
+.ai{
+background:#444654;
+padding:12px;
+border-radius:10px;
+word-wrap:break-word;
+overflow-wrap:anywhere;
+line-height:1.5;
+}
+
+/* MESSAGE ACTIONS */
+
+.messageActions{
+opacity:0;
+margin-top:5px;
+transition:opacity .15s;
+}
+
+.message:hover .messageActions{
+opacity:1;
+}
+
+/* COPY BUTTON */
+
+.copyBtn{
+font-size:12px;
+padding:4px 8px;
+background:#3a3a3a;
+border:none;
+border-radius:6px;
+color:white;
+cursor:pointer;
+}
+
+.copyBtn:hover{
+background:#555;
+}
+
+/* INPUT */
+
+#inputArea{
+padding:18px;
+border-top:1px solid #2a2a2a;
+}
+
+textarea{
+width:100%;
+background:#2b2d31;
+border:none;
+color:white;
+padding:12px;
+border-radius:10px;
+resize:none;
+font-size:14px;
+}
+
+textarea:focus{
+outline:none;
+}
+
+/* CODE */
+
+pre{
+background:#111;
+padding:14px;
+border-radius:10px;
+overflow:auto;
+font-size:13px;
+}
+
+code{
+font-family:monospace;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="sidebar">
+
+<select id="modelSelect">
+<option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+<option value="gpt-4.1">GPT-4.1</option>
+<option value="gpt-4o-mini">GPT-4o Mini</option>
+</select>
+
+<div id="newChat">+ New Chat</div>
+
+<div id="history"></div>
+
+</div>
+
+<div id="main">
+
+<div id="chat"></div>
+
+<div id="inputArea">
+<textarea id="message" rows="2" placeholder="Send a message..."></textarea>
+</div>
+
+</div>
+
+<script>
+
+let chats=[]
+let currentIndex=0
+
+const chatBox=document.getElementById("chat")
+
+/* INIT */
+
+async function init(){
+
+let res=await fetch("/load_chats")
+chats=await res.json()
+
+if(chats.length===0){
+newChat()
+}
+
+renderHistory()
+loadChat(chats.length-1)
+
+}
+
+/* LOAD CHAT */
+
+function loadChat(i){
+
+currentIndex=i
+chatBox.innerHTML=""
+
+let messages=chats[currentIndex].messages
+
+messages.forEach(addMessage)
+
+scrollBottom()
+
+}
+
+/* ADD MESSAGE */
+
+function addMessage(m){
+
+let div=document.createElement("div")
+div.className="message"
+
+let bubble=document.createElement("div")
+bubble.className=m.role==="user"?"user":"ai"
+
+bubble.innerHTML=marked.parse(m.content)
+
+div.appendChild(bubble)
+
+/* ACTIONS */
+
+if(m.role==="assistant"){
+
+let actions=document.createElement("div")
+actions.className="messageActions"
+
+let copy=document.createElement("button")
+copy.className="copyBtn"
+copy.innerText="Copy"
+
+copy.onclick=()=>{
+navigator.clipboard.writeText(m.content)
+copy.innerText="Copied"
+setTimeout(()=>copy.innerText="Copy",1000)
+}
+
+actions.appendChild(copy)
+
+div.appendChild(actions)
+
+}
+
+chatBox.appendChild(div)
+
+highlightCode(div)
+
+}
+
+/* CODE HIGHLIGHT */
+
+function highlightCode(el){
+
+el.querySelectorAll("pre code").forEach((block)=>{
+hljs.highlightElement(block)
+})
+
+}
+
+function scrollBottom(){
+chatBox.scrollTop=chatBox.scrollHeight
+}
+
+/* SIDEBAR */
+
+function renderHistory(){
+
+let history=document.getElementById("history")
+history.innerHTML=""
+
+chats.forEach((chat,i)=>{
+
+let row=document.createElement("div")
+row.className="chatRow"
+
+if(i===currentIndex){
+row.classList.add("activeChat")
+}
+
+let title=document.createElement("div")
+title.className="chatTitle"
+title.innerText=chat.title
+
+title.onclick=()=>loadChat(i)
+
+let rename=document.createElement("button")
+rename.className="iconBtn"
+rename.innerText="✏"
+
+rename.onclick=(e)=>{
+e.stopPropagation()
+
+let name=prompt("Rename chat",chat.title)
+
+if(name){
+chat.title=name
+saveChats()
+renderHistory()
+}
+}
+
+let del=document.createElement("button")
+del.className="iconBtn"
+del.innerText="🗑"
+
+del.onclick=(e)=>{
+e.stopPropagation()
+
+if(confirm("Delete chat?")){
+
+chats.splice(i,1)
+
+if(chats.length===0){
+newChat()
+}else{
+loadChat(0)
+}
+
+saveChats()
+renderHistory()
+
+}
+}
+
+row.appendChild(title)
+row.appendChild(rename)
+row.appendChild(del)
+
+history.appendChild(row)
+
+})
+
+}
+
+/* NEW CHAT */
+
+function newChat(){
+
+let chat={
+title:"New Chat",
+messages:[]
+}
+
+chats.push(chat)
+currentIndex=chats.length-1
+
+renderHistory()
+chatBox.innerHTML=""
+saveChats()
+
+}
+
+document.getElementById("newChat").onclick=newChat
+
+/* SAVE */
+
+async function saveChats(){
+
+await fetch("/save_chats",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify(chats)
+})
+
+}
+
+/* SEND */
+
+async function sendMessage(text){
+
+let messages=chats[currentIndex].messages
+
+let userMsg={role:"user",content:text}
+
+messages.push(userMsg)
+
+addMessage(userMsg)
+
+scrollBottom()
+
+let model=document.getElementById("modelSelect").value
+
+let res=await fetch("/chat",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+messages:messages,
+model:model
+})
+})
+
+let data=await res.json()
+
+let aiMsg={role:"assistant",content:""}
+
+messages.push(aiMsg)
+
+addMessage(aiMsg)
+
+let textStream=data.reply.split(" ")
+
+let i=0
+
+let interval=setInterval(()=>{
+
+aiMsg.content+=textStream[i]+" "
+
+chatBox.lastChild.querySelector(".ai").innerHTML=
+marked.parse(aiMsg.content)
+
+highlightCode(chatBox.lastChild)
+
+scrollBottom()
+
+i++
+
+if(i>=textStream.length){
+clearInterval(interval)
+}
+
+},15)
+
+if(messages.length===2){
+chats[currentIndex].title=text.slice(0,40)
+renderHistory()
+}
+
+saveChats()
+
+}
+
+/* ENTER SEND */
+
+let textarea=document.getElementById("message")
+
+textarea.addEventListener("keydown",function(e){
+
+if(e.key==="Enter" && !e.shiftKey){
+
+e.preventDefault()
+
+let text=textarea.value.trim()
+
+if(!text) return
+
+textarea.value=""
+
+sendMessage(text)
+
+}
+
+})
+
+init()
+
+</script>
+
+</body>
+</html>
